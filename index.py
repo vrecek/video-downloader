@@ -1,90 +1,59 @@
-import re
 import subprocess
 import os
-from time import sleep
-from sys import argv
-from apiclient import discovery
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
-from dotenv import load_dotenv
+import signal
+from App import App
+from typing import Optional
 
 
-# Get the query
-if len(argv) < 2:
-    print('[ERROR] Specify a video name')
-    exit(1)
+signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
 
 
-load_dotenv('.env')
+APP           = App('.env')
 
-
-args:     list = argv[1:]
-
-QUERY:    str  = f"{' '.join(args)} {os.getenv('SITE_1')}"
-API_KEY:  str  = os.getenv('API_KEY')
-ENG_KEY:  str  = os.getenv('ENGINE_ID')
+QUERY:    str = APP.getArgs()
+FILENAME: str = QUERY.replace(' ', '_')
+DWN_PATH: str = '/home/vrecek/Downloads'
+SITE:     str = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])
 
 
 # Search through a google custom search engine
-print('[INFO] Searching...')
-resource      = discovery.build('customsearch', 'v1', developerKey=API_KEY).cse()
-result:  dict = resource.list(q=QUERY, cx=ENG_KEY, num=1).execute()
+results: Optional[list] = APP.searchGoogle(QUERY, SITE)
 
-
-# Exit if a video was not found
-if not 'items' in result:
+if not results:
     print("[ERROR] Video not found. Try a different query")
-    exit(2)
-
-
-# Grab the title and the url
-result = result['items'][0]
-
-title:   str  = result['title']
-url:     str  = result['link']
-
-confirm: str  = input(f'[INFO] Found video: "{title}". Do you want to download it? [y]es/[n]o/[o]pen -> ')
-
-
-# Confirm the user decision
-if confirm == 'o':
-    subprocess.Popen(['firefox', url], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    exit(0)
-
-if confirm != 'y':
     exit(0)
 
 
-print('[INFO] Starting driver...')
+# Get the user input
+url, option  = APP.handleSelectMenu(results)
 
-# Selenium Firefox
-options = Options()
-options.add_argument('--headless')
-
-# Init the geckodriver path
-service = Service('/usr/local/bin/geckodriver')
-
-# Launch an actual driver and fetch the HTML
-driver  = webdriver.Firefox(service=service, options=options)
-driver.get(url)
+# Determine the user's browser
+browser: str = APP.updateBrowserBinaries()
 
 
-print('[INFO] Loading video...')
-sleep(2)
+# Open in the browser
+# Or download the video
+if option == 'open':
+    APP.openInBrowser(url)
+
+elif option == 'download':
+
+    # Custom site to download from
+    if SITE == os.getenv('SITE_1'):
+        match (browser):
+            # Firefox / Librewolf
+            case 'firefox' | 'librewolf':
+                APP.downloadTagFirefox(url, FILENAME, DWN_PATH)
+                
+            # Unknown browser
+            case _:
+                print('Unknown browser')        
 
 
-try:
-    # Get the actual video URL
-    mp4:      str = re.search(r'<video.*?src="(.*?)".*?></video>', driver.page_source).group(1)
-    dwn_path: str = '/home/vrecek/Downloads'
+    # Download from YouTube
+    elif SITE == os.getenv('SITE_2'):
+        APP.downloadYoutube(url, FILENAME, DWN_PATH)
 
-    # Download a file using wget
-    print('[INFO] Downloading...')
-    subprocess.call(['wget', '--user-agent="Mozilla"', '-O', f'{dwn_path}/{"_".join(args)}.mp4', mp4])
-
-except AttributeError:
-    print('[ERROR] Could not find a video URL')
-    
-finally:
-    driver.quit()
+    # Invalid site
+    else:
+        print('[ERROR] Incorrect site to download from')
