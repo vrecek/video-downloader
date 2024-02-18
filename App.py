@@ -9,6 +9,7 @@ from apiclient import discovery
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
+from pytube import YouTube, Stream
 
 
 class App():
@@ -16,13 +17,8 @@ class App():
         load_dotenv(env_file)
 
         try:
-            self.API_KEY = os.getenv('API_KEY')
+            self.API_KEY   = os.getenv('API_KEY')
             self.ENGINE_ID = os.getenv('ENGINE_ID')
-
-            self.sites = [
-                os.getenv('SITE_1'),
-                os.getenv('SITE_2')
-            ]
 
         except:
             print('[ERROR] Some of the environment variables are missing')
@@ -37,36 +33,47 @@ class App():
         return subprocess.run(inp, capture_output=True).stdout.decode('utf-8')
 
 
-    def updateBrowserBinaries(self) -> Optional[str]:
-        browser_name: Optional[str] = None
+
+    def updateBrowserBinaries(self) -> None:
+        p_browser: Optional[str] = os.getenv('BROWSER')
+        p_driver:  Optional[str] = os.getenv('DRIVER')
+
 
         try:
             # Check for the firefox/librewolf browser
-            for x in ['firefox', 'librewolf']:
-                browser: Optional[str] = self.__getShell(['which', x]).rstrip()
+            if not p_browser:
+                for x in ['firefox', 'librewolf']:
+                    browser: Optional[str] = self.__getShell(['which', x]).rstrip()
 
-                if browser: 
-                    browser_name = x
-                    break
+                    if browser: 
+                        p_browser = x
+                        break
 
 
             # Check for the browser driver
-            for x in ['geckodriver']:
-                driver: Optional[str] = self.__getShell(['locate', 'geckodriver']).split('\n')
-                driver = shutil.which(driver[0])
+            if not p_driver:
+                for x in ['geckodriver']:
+                    driver: Optional[str] = self.__getShell(['locate', 'geckodriver']).split('\n')
+                    driver = shutil.which(driver[0])
 
-                if driver: break
+                    if driver: 
+                        p_driver = driver
+                        break
                 
 
-            self.driver  = driver  or None
-            self.browser = browser or None
+            self.driver  = p_driver
+            self.browser = p_browser
 
         except:
             self.driver  = None
             self.browser = None
 
-        finally:
-            return browser_name
+
+    def checkBrowserBinaries(self) -> None:
+        if all([self.browser, self.driver]):
+            return
+
+        self.__exit('Some of the browser binaries are missing. Please check the manual')
 
 
     def searchToDownloadFrom(self, links: list) -> str:
@@ -113,18 +120,14 @@ class App():
             subprocess.Popen([self.browser, url], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         except:
-            self.__exit('Browser was not found')
+            self.__exit('[ERROR] Browser was not found')
 
 
     def searchGoogle(self, query: str, site: str) -> Optional[list]:
         print('[INFO] Searching...')
 
-        # Search from the specific sites
-        if not site in self.sites:
-            self.__exit('Incorrect site selection')
-
-        index: int = self.sites.index(site) 
-        query = f'{query} site:{self.sites[index]}'
+        # Search from the specific site
+        query = f'{query} site:{site}'
 
         # Search from the google custom search
         resource: any  = discovery.build('customsearch', 'v1', developerKey=self.API_KEY).cse()
@@ -175,8 +178,31 @@ class App():
             self.__exit()
 
 
-    def downloadYoutube(self, url: str) -> None:
-        pass
+    def downloadYoutube(self, url: str, filename: str, dwn_path: str) -> None:
+        def on_progress(stream: Stream, _, remaining: int) -> None:
+            # Calculate the current %
+            perc: int = round((1 - remaining / stream.filesize) * 100)
+
+            # Clear previous 3 lines
+            print ("\033[A\033[A")
+            print ("\033[A\033[A")
+            print ("\033[A\033[A")
+
+            # Make a progress bar
+            print('-' * 100)
+            print(f'{"=" * perc}{" " * (100 - perc)} {perc}%')
+            print('-' * 100)
+
+
+        print('[INFO] Fetching...')
+        yt = YouTube(url, on_progress).streams \
+                                      .filter(progressive=True, file_extension='mp4') \
+                                      .order_by('resolution') \
+                                      .desc() \
+                                      .first()
+
+        print('[INFO] Downloading...\n\n\n')
+        yt.download(dwn_path, f'{filename}.mp4')
 
 
     def downloadTagFirefox(self, url: str, filename: str, dwn_path: str) -> None:
@@ -203,7 +229,7 @@ class App():
             driver.get(url)
 
         except:
-            self.__exit('Browser was not found')
+            self.__exit('Geckodriver/Browser was not found')
 
 
         try:
@@ -216,9 +242,10 @@ class App():
 
         except AttributeError:
             print('[ERROR] Could not find a video URL')
-
-        except KeyboardInterrupt:
-            print('[EXIT] Interrupted')
             
         finally:
             driver.quit()
+
+
+    def getBrowser(self) -> Optional[str]:
+        return self.browser
