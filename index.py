@@ -3,7 +3,6 @@ import os
 import signal
 from App import App
 from typing import Optional
-from pytube import YouTube
 
 
 signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
