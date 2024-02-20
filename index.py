@@ -43,7 +43,7 @@ if option == 'open':
 
 elif option == 'download':
 
-    # Custom site to download from
+    # Download from SITE_1
     if SITE == os.getenv('SITE_1'):
         match (APP.getBrowser()):
             # Firefox / Librewolf
@@ -55,7 +55,7 @@ elif option == 'download':
                 print('[ERROR] Unknown browser')        
 
 
-    # Download from YouTube
+    # Download from SITE_2
     elif SITE == os.getenv('SITE_2'):
         APP.downloadYoutube(url, FILENAME, DWN_PATH)
 
