@@ -11,17 +11,17 @@ signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
 APP = App('.env')
 
 # Get the query from the 'argv'
-QUERY:    str  = APP.getArgs()
-
-FILENAME: str  = QUERY.replace(' ', '_')
-DWN_PATH: str  = os.getenv('DOWNLOAD_PATH')
+QUERY:         str  = APP.getArgs()
+FILENAME:      str  = QUERY.replace(' ', '_')
+DWN_PATH:      str  = os.getenv('DOWNLOAD_PATH')
+TOTAL_RESULTS: int = 5
 
 # Select a site from the menu
-SITE:     str  = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])
+SITE:          str  = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])
 
 
 # Search through a google custom search engine
-results: Optional[list] = APP.searchGoogle(QUERY, SITE)
+results: Optional[list] = APP.searchGoogle(QUERY, SITE, TOTAL_RESULTS)
 
 if not results:
     print("[ERROR] Video not found. Try a different query")
@@ -45,7 +45,7 @@ elif option == 'download':
 
     # Download from SITE_1
     if SITE == os.getenv('SITE_1'):
-        match (APP.getBrowser()):
+        match APP.getBrowser():
             # Firefox / Librewolf
             case 'firefox' | 'librewolf':
                 APP.downloadTagFirefox(url, FILENAME, DWN_PATH)
@@ -57,7 +57,9 @@ elif option == 'download':
 
     # Download from SITE_2
     elif SITE == os.getenv('SITE_2'):
-        APP.downloadYoutube(url, FILENAME, DWN_PATH)
+        video_type: str = input('[INPUT] Select video type: mp3/mp4: ')
+        
+        APP.downloadYoutube(url, FILENAME, DWN_PATH, video_type)
 
     # Invalid site
     else:

@@ -123,7 +123,7 @@ class App():
             self.__exit('[ERROR] Browser was not found')
 
 
-    def searchGoogle(self, query: str, site: str) -> Optional[list]:
+    def searchGoogle(self, query: str, site: str, result_num: int) -> Optional[list]:
         print('[INFO] Searching...')
 
         # Search from the specific site
@@ -131,7 +131,7 @@ class App():
 
         # Search from the google custom search
         resource: any  = discovery.build('customsearch', 'v1', developerKey=self.API_KEY).cse()
-        result:   dict = resource.list(q=query, cx=self.ENGINE_ID, num=3).execute()
+        result:   dict = resource.list(q=query, cx=self.ENGINE_ID, num=result_num).execute()
 
 
         if not 'items' in result:
@@ -178,7 +178,7 @@ class App():
             self.__exit()
 
 
-    def downloadYoutube(self, url: str, filename: str, dwn_path: str) -> None:
+    def downloadYoutube(self, url: str, filename: str, dwn_path: str, vid_type: str) -> None:
         def on_progress(stream: Stream, _, remaining: int) -> None:
             # Calculate the current %
             perc: int = round((1 - remaining / stream.filesize) * 100)
@@ -195,14 +195,23 @@ class App():
 
 
         print('[INFO] Fetching...')
-        yt = YouTube(url, on_progress).streams \
-                                      .filter(progressive=True, file_extension='mp4') \
-                                      .order_by('resolution') \
-                                      .desc() \
-                                      .first()
+        yt = YouTube(url, on_progress).streams
+
+        match vid_type:
+            case 'mp3':
+                yt = yt.filter(only_audio=True) \
+                       .first()
+
+            case 'mp4':
+                yt = yt.filter(progressive=True, file_extension='mp4') \
+                       .order_by('resolution') \
+                       .desc() \
+                       .first()
+            case _:
+                self.__exit()
 
         print('[INFO] Downloading...\n\n\n')
-        yt.download(dwn_path, f'{filename}.mp4')
+        yt.download(dwn_path, f'{filename}.{vid_type}')
 
 
     def downloadTagFirefox(self, url: str, filename: str, dwn_path: str) -> None:
