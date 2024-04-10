@@ -57,7 +57,7 @@ elif option == 'download':
 
     # Download from SITE_2
     elif SITE == os.getenv('SITE_2'):
-        video_type: str = input('[INPUT] Select video type: mp3/mp4: ')
+        video_type: str = input('[INPUT] Select video type (mp3/mp4): ')
         
         APP.downloadYoutube(url, FILENAME, DWN_PATH, video_type)
 

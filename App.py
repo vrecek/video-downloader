@@ -2,6 +2,9 @@ import os
 import re
 import subprocess
 import shutil
+import sys
+from re import search
+from urllib import error
 from typing import Optional
 from dotenv import load_dotenv
 from sys import argv
@@ -9,7 +12,7 @@ from apiclient import discovery
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
-from pytube import YouTube, Stream
+from pytube import YouTube, Stream, exceptions
 
 
 class App():
@@ -171,10 +174,10 @@ class App():
                     option = 'download'
                 case _:
                     self.__exit()
-
+            
             return selected_url, option
 
-        except:
+        except Exception as e:
             self.__exit()
 
 
@@ -185,17 +188,58 @@ class App():
 
             # Clear previous 3 lines
             print ("\033[A\033[A")
-            print ("\033[A\033[A")
-            print ("\033[A\033[A")
 
             # Make a progress bar
-            print('-' * 100)
-            print(f'{"=" * perc}{" " * (100 - perc)} {perc}%')
-            print('-' * 100)
+            print(f"|{'=' * perc}{' ' * (100 - perc)}| {perc}%")
 
 
         print('[INFO] Fetching...')
-        yt = YouTube(url, on_progress).streams
+        
+        try:
+            yt = YouTube(url, on_progress).streams
+            
+        # When client=ANDROID_EMBED + age restricted video
+        except exceptions.AgeRestrictedError:
+            libpath: str = os.path.join(os.path.expanduser('~'), '.local', 'lib')
+            py_ver:  str = f'{sys.version_info[0]}.{sys.version_info[1]}'
+
+            try:
+                pylib: str = [v for v in os.listdir(libpath) if search(rf'^python{py_ver}', v)][0]
+                f:     str = os.path.join(libpath, pylib, 'site-packages', 'pytube', '__main__.py')
+
+                with open(f, 'r+') as file:
+                    new: str = file.read().replace('ANDROID_EMBED', 'ANDROID_CREATOR')
+
+                    file.seek(0)
+                    file.write(new)
+                    file.truncate()
+
+                print('[INFO] Age restricted video detected for the first time. Please re-run the script to apply necessary changes')
+                exit(1)
+
+            except IndexError:
+                self.__exit(
+                    'Unknown python version. Please edit "~/.local/lib/<version>/site-packages/pytube/__main__.py" client=ANDROID_EMBED to client=ANDROID_CREATOR'
+                )
+
+        # When client=ANDROID_CREATOR + age restricted video 
+        except KeyError:
+            print('[INFO] Video is age restricted')
+            age_input: str = input('[INPUT] Would you like to use your verified Google account? (y/n): ')
+
+            if age_input != 'y':
+                self.__exit('Video is age restricted')
+
+            try:
+                yt = YouTube(url, on_progress, use_oauth=True, allow_oauth_cache=True).streams
+
+            except error.HTTPError:
+                self.__exit('Authentication failed')
+        
+        # Unknown error
+        except exceptions.RegexMatchError:
+            self.__exit('Unknown error. Make sure the video is correct')
+
 
         match vid_type:
             case 'mp3':
@@ -210,7 +254,7 @@ class App():
             case _:
                 self.__exit()
 
-        print('[INFO] Downloading...\n\n\n')
+        print('[INFO] Downloading...\n\n')
         yt.download(dwn_path, f'{filename}.{vid_type}')
 
 
