@@ -3,32 +3,35 @@ import os
 import signal
 from App import App
 from typing import Optional
+from utils import downloadListYT, getInputVideoType, downloadSingleYT, downloadSingleCustom
 
 
 signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
 
 
-APP = App('.env')
+APP:      App = App('.env')
+QUERY:    str = APP.getArgs()
+DWN_PATH: str = '/home/vrecek/Downloads'
 
-# Get the query from the 'argv'
-QUERY:         str  = APP.getArgs()
-FILENAME:      str  = QUERY.replace(' ', '_')
-DWN_PATH:      str  = os.getenv('DOWNLOAD_PATH')
-TOTAL_RESULTS: int = 5
 
-# Select a site from the menu
-SITE:          str  = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])
+# Download from the videos.txt
+if QUERY == 'dl':
+    downloadListYT(APP, DWN_PATH)
+
+
+SITE:        str  = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])
+FILENAME:    str  = QUERY.replace(' ', '_')
+MAX_RESULTS: int  = 5
 
 
 # Search through a google custom search engine
-results: Optional[list] = APP.searchGoogle(QUERY, SITE, TOTAL_RESULTS)
+results: Optional[list] = APP.searchGoogle(QUERY, SITE, MAX_RESULTS)
 
 if not results:
-    print("[ERROR] Video not found. Try a different query")
-    exit(1)
+    APP.write('Video not found. Try a different query')
 
 
-# Get the user input
+# Let the user select the video
 url, option = APP.handleSelectMenu(results)
 
 # Update and check the browser binaries
@@ -37,30 +40,19 @@ APP.checkBrowserBinaries()
 
 
 # Open in the browser
-# Or download the video
 if option == 'open':
     APP.openInBrowser(url)
 
+# Or download the video
 elif option == 'download':
-
     # Download from SITE_1
     if SITE == os.getenv('SITE_1'):
-        match APP.getBrowser():
-            # Firefox / Librewolf
-            case 'firefox' | 'librewolf':
-                APP.downloadTagFirefox(url, FILENAME, DWN_PATH)
-                
-            # Unknown browser
-            case _:
-                print('[ERROR] Unknown browser')        
-
+        downloadSingleCustom(APP, url, DWN_PATH, FILENAME)
 
     # Download from SITE_2
     elif SITE == os.getenv('SITE_2'):
-        video_type: str = input('[INPUT] Select video type (mp3/mp4): ')
-        
-        APP.downloadYoutube(url, FILENAME, DWN_PATH, video_type)
+        downloadSingleYT(APP, url, DWN_PATH, FILENAME)
 
     # Invalid site
     else:
-        print('[ERROR] Incorrect site to download from')
+        APP.write('Incorrect site to download from')

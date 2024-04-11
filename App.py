@@ -24,31 +24,34 @@ class App():
             self.ENGINE_ID = os.getenv('ENGINE_ID')
 
         except:
-            print('[ERROR] Some of the environment variables are missing')
-            exit(1)
+            self.write('Some of the environment variables are missing')
 
 
-    def __exit(self, msg: str = 'Invalid option') -> None:
-        print(f'[ERROR] {msg}')
-        exit(1)
 
     def __getShell(self, inp: list) -> Optional[str]:
         return subprocess.run(inp, capture_output=True).stdout.decode('utf-8')
 
+
+    def write(self, msg: str='Invalid option', type: str='e', terminate: bool=False) -> None:
+        match type:
+            case 'i': bar = '[INFO]'
+            case 'e': bar = '[ERROR]'
+
+        print(f'{bar} {msg}')
+
+        if type == 'e' or terminate: 
+            exit(1)
 
 
     def updateBrowserBinaries(self) -> None:
         p_browser: Optional[str] = os.getenv('BROWSER')
         p_driver:  Optional[str] = os.getenv('DRIVER')
 
-
         try:
             # Check for the firefox/librewolf browser
             if not p_browser:
                 for x in ['firefox', 'librewolf']:
-                    browser: Optional[str] = self.__getShell(['which', x]).rstrip()
-
-                    if browser: 
+                    if self.__getShell(['which', x]).rstrip(): 
                         p_browser = x
                         break
 
@@ -76,7 +79,7 @@ class App():
         if all([self.browser, self.driver]):
             return
 
-        self.__exit('Some of the browser binaries are missing. Please check the manual')
+        self.write('Some of the browser binaries are missing. Please check the manual')
 
 
     def searchToDownloadFrom(self, links: list) -> str:
@@ -87,12 +90,12 @@ class App():
             var: Optional[str] = os.getenv(x)
 
             if not var:
-                self.__exit('Some of the sites from the environment does not exist')
+                self.write('Some of the sites from the environment does not exist')
 
             providers.append(var)            
 
 
-        print("""[INFO] Select the provider\n""")
+        self.write('Select the provider\n', 'i')
         for i, x in enumerate(links):
             print(f'[{i}] {x}')
             
@@ -106,13 +109,12 @@ class App():
             return provider
 
         except:
-            self.__exit('Incorrect option')
+            self.write()
 
 
     def getArgs(self) -> str:
         if len(argv) < 2:
-            print('[ERROR] Specify a video search query')
-            exit(1)
+            self.write('Specify a video search query')
 
         # Get the query from argv
         return ' '.join(argv[1:])
@@ -123,11 +125,11 @@ class App():
             subprocess.Popen([self.browser, url], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         except:
-            self.__exit('[ERROR] Browser was not found')
+            self.write('Browser was not found')
 
 
     def searchGoogle(self, query: str, site: str, result_num: int) -> Optional[list]:
-        print('[INFO] Searching...')
+        self.write('Searching...', 'i')
 
         # Search from the specific site
         query = f'{query} site:{site}'
@@ -145,8 +147,8 @@ class App():
 
 
     def handleSelectMenu(self, results: list) -> str:
-        print("""[INFO] Found video(s)""")
-        print("""[INFO] Select number and [d]ownload, [o]pen\n""")
+        self.write('Found video(s)', 'i')
+        self.write('[INFO] Select number and [d]ownload, [o]pen\n', 'i')
 
         # Display possible videos
         for i, [title, url] in enumerate(results):
@@ -158,8 +160,7 @@ class App():
 
         # Answer must be: <number><type>
         if len(answer) != 2:
-            self.__exit()
-
+            self.write()
 
         nr, opt = answer
 
@@ -173,72 +174,81 @@ class App():
                 case 'd':
                     option = 'download'
                 case _:
-                    self.__exit()
+                    self.write()
             
             return selected_url, option
 
         except Exception as e:
-            self.__exit()
+            self.write()
 
 
-    def downloadYoutube(self, url: str, filename: str, dwn_path: str, vid_type: str) -> None:
+    def downloadYoutube(self, url: str, dwn_path: str, vid_type: str, filename: str=None, quiet: bool=False, raiseErr: bool=False) -> None:
         def on_progress(stream: Stream, _, remaining: int) -> None:
             # Calculate the current %
             perc: int = round((1 - remaining / stream.filesize) * 100)
 
-            # Clear previous 3 lines
+            # Clear previous line
             print ("\033[A\033[A")
 
             # Make a progress bar
             print(f"|{'=' * perc}{' ' * (100 - perc)}| {perc}%")
 
 
-        print('[INFO] Fetching...')
-        
         try:
+            not quiet and self.write('Fetching...', 'i')
             yt = YouTube(url, on_progress).streams
-            
+
         # When client=ANDROID_EMBED + age restricted video
         except exceptions.AgeRestrictedError:
+            # Find the local python version
             libpath: str = os.path.join(os.path.expanduser('~'), '.local', 'lib')
             py_ver:  str = f'{sys.version_info[0]}.{sys.version_info[1]}'
 
             try:
+                # And find the pytube package
                 pylib: str = [v for v in os.listdir(libpath) if search(rf'^python{py_ver}', v)][0]
                 f:     str = os.path.join(libpath, pylib, 'site-packages', 'pytube', '__main__.py')
 
                 with open(f, 'r+') as file:
+                    # Replace value due to the bug in the package?
                     new: str = file.read().replace('ANDROID_EMBED', 'ANDROID_CREATOR')
 
                     file.seek(0)
                     file.write(new)
                     file.truncate()
 
-                print('[INFO] Age restricted video detected for the first time. Please re-run the script to apply necessary changes')
-                exit(1)
+                self.write('Age restricted video detected for the first time. Please re-run the script to apply necessary changes', 'i', True)
 
             except IndexError:
-                self.__exit(
+                self.write(
                     'Unknown python version. Please edit "~/.local/lib/<version>/site-packages/pytube/__main__.py" client=ANDROID_EMBED to client=ANDROID_CREATOR'
                 )
 
         # When client=ANDROID_CREATOR + age restricted video 
         except KeyError:
-            print('[INFO] Video is age restricted')
+            self.write('Video is age restricted', 'i')
             age_input: str = input('[INPUT] Would you like to use your verified Google account? (y/n): ')
 
             if age_input != 'y':
-                self.__exit('Video is age restricted')
+                if raiseErr:
+                    raise exceptions.AgeRestrictedError
+
+                self.write('Video is age restricted')
+
+            print()
 
             try:
                 yt = YouTube(url, on_progress, use_oauth=True, allow_oauth_cache=True).streams
 
             except error.HTTPError:
-                self.__exit('Authentication failed')
+                self.write('Authentication failed')
         
         # Unknown error
-        except exceptions.RegexMatchError:
-            self.__exit('Unknown error. Make sure the video is correct')
+        except exceptions.RegexMatchError as e:
+            if raiseErr:
+                raise exceptions.RegexMatchError
+                
+            self.write('Unknown error. Make sure the video is correct')
 
 
         match vid_type:
@@ -252,14 +262,19 @@ class App():
                        .desc() \
                        .first()
             case _:
-                self.__exit()
+                self.write()
 
-        print('[INFO] Downloading...\n\n')
-        yt.download(dwn_path, f'{filename}.{vid_type}')
+
+        not quiet and self.write('Downloading...\n\n', 'i')
+
+        escaped_title: str = yt.title.replace('/', '-')
+
+        yt.download(dwn_path, f'{filename or escaped_title}.{vid_type}')
+        print('')
 
 
     def downloadTagFirefox(self, url: str, filename: str, dwn_path: str) -> None:
-        print('[INFO] Starting driver...')
+        self.write('Starting driver...', 'i')
 
         # Selenium Firefox
         options = Options()
@@ -272,17 +287,11 @@ class App():
         try:
             service = Service(self.driver)
 
-        except:
-            self.__exit('Geckodriver was not found')
-
-
-        # Launch an actual driver and fetch the HTML
-        try:
             driver: any = webdriver.Firefox(service=service, options=options)
             driver.get(url)
 
         except:
-            self.__exit('Geckodriver/Browser was not found')
+            self.write('Geckodriver/Browser was not found')
 
 
         try:
@@ -290,11 +299,12 @@ class App():
             mp4: str = re.search(r'<video.*?src="(.*?)".*?></video>', driver.page_source).group(1)
 
             # Download a file using wget
-            print('[INFO] Downloading...\n')
+            self.write('Downloading...\n', 'i')
             subprocess.call(['wget', '--user-agent="Mozilla"', '-O', f'{dwn_path}/{filename}.mp4', mp4])
 
         except AttributeError:
-            print('[ERROR] Could not find a video URL')
+            driver.quit()
+            self.write('Could not find a video URL')
             
         finally:
             driver.quit()
