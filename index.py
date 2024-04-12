@@ -3,7 +3,7 @@ import os
 import signal
 from App import App
 from typing import Optional
-from utils import downloadListYT, getInputVideoType, downloadSingleYT, downloadSingleCustom
+from utils import downloadSingleYT, downloadSingleCustom
 
 
 signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
@@ -16,7 +16,7 @@ DWN_PATH: str = '/home/vrecek/Downloads'
 
 # Download from the videos.txt
 if QUERY == 'dl':
-    downloadListYT(APP, DWN_PATH)
+    APP.downloadListYoutube(DWN_PATH)
 
 
 SITE:        str  = APP.searchToDownloadFrom(['SITE_1', 'SITE_2'])

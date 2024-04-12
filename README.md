@@ -15,19 +15,22 @@ site -> embeded video -> mp4 file <br>
 
 ```python3 index.py <query>```<br>
 
-##### Download from the videos.txt file
+##### Download from the YT from the videos.txt file
 
 ```python3 index.py dl```<br>
 
-In your .env file create site name with the source, eg. SITE_2=youtube.com <br>
-In "if" statements, by default it's using SITE_1 as 'other site' and SITE_2 as 'youtube'
+File must be formatted: -url- -optional name- <br>
+If optional name is omitted, video's title will be used
 
 # .env
+
+In your .env file create site name with the source, eg. SITE_2=youtube.com <br>
+In "if" statements, by default it's using SITE_1 as 'other site' and SITE_2 as 'youtube'<br><br>
 
 API_KEY -> google programmable search engine API key <br>
 ENGINE_ID -> ID of your google engine <br>
 -site name- -> eg. MYSITE=somesite.com <br>
-BROWSER -> optional browser (firefox/librewolf)
+BROWSER -> optional browser (firefox/librewolf)<br>
 DRIVER -> optional geckodriver path <br>
 
 # Troubleshooting

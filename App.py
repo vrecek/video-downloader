@@ -31,6 +31,20 @@ class App():
     def __getShell(self, inp: list) -> Optional[str]:
         return subprocess.run(inp, capture_output=True).stdout.decode('utf-8')
 
+    def __mapListFile(self, strObj: str) -> list:
+        arr = strObj.split(' ')
+        return [ arr[0], ' '.join(arr[1:]) ]
+
+    def __on_progress(self, stream: Stream, _, remaining: int) -> None:
+        # Calculate the current %
+        perc: int = round((1 - remaining / stream.filesize) * 100)
+
+        # Clear previous line
+        print ("\033[A\033[A")
+
+        # Make a progress bar
+        print(f"|{'=' * perc}{' ' * (100 - perc)}| {perc}%")
+
 
     def write(self, msg: str='Invalid option', type: str='e', terminate: bool=False) -> None:
         match type:
@@ -182,21 +196,14 @@ class App():
             self.write()
 
 
+    def getInputVideoType(self) -> str:
+        return input('[INPUT] Select video type (mp3/mp4): ')
+
+
     def downloadYoutube(self, url: str, dwn_path: str, vid_type: str, filename: str=None, quiet: bool=False, raiseErr: bool=False) -> None:
-        def on_progress(stream: Stream, _, remaining: int) -> None:
-            # Calculate the current %
-            perc: int = round((1 - remaining / stream.filesize) * 100)
-
-            # Clear previous line
-            print ("\033[A\033[A")
-
-            # Make a progress bar
-            print(f"|{'=' * perc}{' ' * (100 - perc)}| {perc}%")
-
-
         try:
             not quiet and self.write('Fetching...', 'i')
-            yt = YouTube(url, on_progress).streams
+            yt = YouTube(url, self.__on_progress).streams
 
         # When client=ANDROID_EMBED + age restricted video
         except exceptions.AgeRestrictedError:
@@ -271,6 +278,58 @@ class App():
 
         yt.download(dwn_path, f'{filename or escaped_title}.{vid_type}')
         print('')
+
+
+    def downloadListYoutube(self, download_path: str) -> None:
+        VID_FILE: str = 'videos.txt'
+        
+        # Create a file if its not present
+        if not os.path.isfile(VID_FILE):
+            open('videos.txt', 'a').close()
+            self.write('List "videos.txt" is empty')
+
+
+        with open(VID_FILE, 'r') as file:
+            # Read the URL from the file
+            links: str = file.read()
+
+            if not links:
+                self.write('List "videos.txt" is empty')
+
+
+            links: list = list(map(
+                self.__mapListFile,
+                links.split('\n')
+            ))
+
+
+        video_type: str = self.getInputVideoType()
+        dwn_count:  int = 0
+        links_len:  int = len(links)
+
+        print()
+
+        for i, [url, title] in enumerate(links):
+            self.write(f'Downloading {i + 1}/{links_len}\n', 'i')
+
+            try:
+                self.downloadYoutube(url, download_path, video_type, quiet=True, raiseErr=True, filename=title)
+                dwn_count += 1
+
+            except Exception as e:
+                err: str = str(e)
+
+                if 'AgeRestrictedError' in err:
+                    print()
+
+                if 'RegexMatchError' in err:
+                    print ("\033[A\033[A")
+                    self.write('Incorrect URL! Skipping...\n', 'i')
+
+                continue
+
+        self.write(f'Done. Downloaded files: {dwn_count}/{links_len}', 'i')
+        exit(0)
 
 
     def downloadTagFirefox(self, url: str, filename: str, dwn_path: str) -> None:
