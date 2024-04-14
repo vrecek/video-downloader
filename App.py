@@ -33,7 +33,7 @@ class App():
 
     def __mapListFile(self, strObj: str) -> list:
         arr = strObj.split(' ')
-        return [ arr[0], ' '.join(arr[1:]) ]
+        return [ arr[0], ' '.join(arr[1:]).replace('/', '-') ]
 
     def __on_progress(self, stream: Stream, _, remaining: int) -> None:
         # Calculate the current %
@@ -296,12 +296,10 @@ class App():
             if not links:
                 self.write('List "videos.txt" is empty')
 
-
             links: list = list(map(
                 self.__mapListFile,
-                links.split('\n')
+                links.split('\n')[:-1]
             ))
-
 
         video_type: str = self.getInputVideoType()
         dwn_count:  int = 0
@@ -322,9 +320,13 @@ class App():
                 if 'AgeRestrictedError' in err:
                     print()
 
-                if 'RegexMatchError' in err:
+                elif 'RegexMatchError' in err:
                     print ("\033[A\033[A")
                     self.write('Incorrect URL! Skipping...\n', 'i')
+
+                else:
+                    print ("\033[A\033[A")
+                    self.write('Something went wrong. Skipping...\n', 'i')
 
                 continue
 
