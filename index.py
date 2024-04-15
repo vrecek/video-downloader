@@ -4,6 +4,7 @@ import signal
 from App import App
 from typing import Optional
 from utils import downloadSingleYT, downloadSingleCustom
+from pathlib import Path
 
 
 signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
@@ -11,7 +12,7 @@ signal.signal(signal.SIGINT, lambda sig,frame: exit(0))
 
 APP:      App = App('.env')
 QUERY:    str = APP.getArgs()
-DWN_PATH: str = '/home/vrecek/Downloads'
+DWN_PATH: str = Path.home()
 
 
 # Download from the videos.txt
